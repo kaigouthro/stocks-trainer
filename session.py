@@ -32,7 +32,6 @@ class Session:
 
     def get_ohlc(self):
         
-        ohlc = {}
         try:
             elem = self.driver.find_element_by_xpath(xpath.OPEN)
             open_ = elem.text
@@ -58,12 +57,7 @@ class Session:
             self.show_error(e)
             return None
 
-        ohlc["open"] = open_
-        ohlc["high"] = high
-        ohlc["low"] = low
-        ohlc["close"] = close
-
-        return ohlc
+        return {"open": open_, "high": high, "low": low, "close": close}
 
     def get_name(self):
         try:
@@ -101,9 +95,7 @@ class Session:
     def check_last_bar(self):
         try:
 
-            x = self.driver.execute_script(xpath.LAST_BAR_CHECK)
-            
-            return x
+            return self.driver.execute_script(xpath.LAST_BAR_CHECK)
         except Exception as e:
             self.show_error(e)
             return None
@@ -132,10 +124,7 @@ class Trade:
     def market_order(self, quantity, take_profit=None, stop_loss=None):
         self.mo = True
         self.lo = False
-        if self.is_sell:
-            self.quantity = -quantity
-        else:
-            self.quantity = quantity
+        self.quantity = -quantity if self.is_sell else quantity
         self.take_profit = take_profit
         self.stop_loss = stop_loss
 
@@ -143,10 +132,7 @@ class Trade:
         self.mo = False
         self.lo = True
         self.limit = limit
-        if self.is_sell:
-            self.quantity = -quantity
-        else:
-            self.quantity = quantity
+        self.quantity = -quantity if self.is_sell else quantity
         self.take_profit = take_profit
         self.stop_loss = stop_loss
 
@@ -165,19 +151,14 @@ class Trade:
         self.ohlc = ohlc
 
     def __str__(self):
-        retst = ""
-        if self.is_sell:
-            retst += "Short @ "
-        else:
-            retst += "Long @ "
-
+        retst = "" + ("Short @ " if self.is_sell else "Long @ ")
         if self.mo:
-            retst += str(self.taken_price) + "[MO]"
+            retst += f"{str(self.taken_price)}[MO]"
         else:
-            retst += str(self.limit) + "[LO]"
+            retst += f"{str(self.limit)}[LO]"
 
-        retst += " Q."+str(abs(self.quantity))
-        
+        retst += f" Q.{str(abs(self.quantity))}"
+
         return retst
 
 class Position:
@@ -213,75 +194,7 @@ class Position:
         try:
             res = self.quantity + quantity
 
-            if not self.is_short:
-                if res == 0:
-                    # squareoff
-                    buy_cap = self.avg_price * self.quantity
-                    sell_cap = price * self.quantity
-
-                    self.booked.append([buy_cap, sell_cap])
-                    self.shares = []
-                    if self.session is not None:
-                        self.session.percent_profit += (self.get_profit() / self.invested_amount) * 100
-                    
-                    self.status = False
-                    pass
-                elif res < 0:
-                    # squareoff
-                    buy_cap = self.avg_price * self.quantity
-                    sell_cap = price * self.quantity
-
-                    self.booked.append([buy_cap, sell_cap])
-                    self.shares = []
-                    if self.session is not None:
-                        self.session.percent_profit += (self.get_profit() / self.invested_amount) * 100
-                    
-                    self.status = False
-                    messagebox.showerror("Oversold", "You sold more quantity then you bought.")
-                    pass
-                else:
-
-                    if quantity < 0:
-
-                        bquant = quantity
-                        net_price_sold = 0
-
-                        pops = []
-                        for i in range(len(self.shares)):
-
-                            res = self.shares[i][1] + quantity
-
-                            if res < 0:
-                                quantity = res
-                                net_price_sold += self.shares[i][0] * self.shares[i][1]
-                                pops.append(self.shares[i])
-
-                            elif res == 0:
-                                quantity = res
-                                pops.append(self.shares[i])
-                                net_price_sold += self.shares[i][0] * self.shares[i][1]
-                            else:
-                                self.shares[i][1] = res
-                                net_price_sold += self.shares[i][0] * abs(quantity)
-                                quantity = 0
-
-                        curr_value_sold = price * abs(bquant)
-
-                        self.booked.append([net_price_sold, curr_value_sold])
-                        for i in pops:
-                            self.shares.remove(i)
-
-                        self.quantity
-                        self.avg_price
-                        return
-                    self.shares.append([price, quantity])
-                    self.quantity
-                    self.avg_price
-                    buy_cap = self.avg_price * self.quantity
-                    sell_cap = price * self.quantity
-
-                    pass
-            else:
+            if self.is_short:
                 if res == 0:
                     # squareoff
                     buy_cap = self.avg_price * abs(self.quantity)
@@ -291,7 +204,6 @@ class Position:
                     if self.session is not None:
                         self.session.percent_profit += (self.get_profit() / self.invested_amount) * 100
                     self.status = False
-                    pass
                 elif res > 0:
                     # squareoff
                     buy_cap = self.avg_price * abs(self.quantity)
@@ -300,10 +212,9 @@ class Position:
                     self.shares = []
                     if self.session is not None:
                         self.session.percent_profit += (self.get_profit() / self.invested_amount) * 100
-                    
+
                     self.status = False
                     messagebox.showerror("Overbought", "You bought more quantity then you sold.")
-                    pass
                 else:
                     if quantity > 0:
 
@@ -347,32 +258,86 @@ class Position:
                     self.quantity
                     self.avg_price
 
-                    pass
+            elif res == 0:
+                # squareoff
+                buy_cap = self.avg_price * self.quantity
+                sell_cap = price * self.quantity
+
+                self.booked.append([buy_cap, sell_cap])
+                self.shares = []
+                if self.session is not None:
+                    self.session.percent_profit += (self.get_profit() / self.invested_amount) * 100
+
+                self.status = False
+            elif res < 0:
+                # squareoff
+                buy_cap = self.avg_price * self.quantity
+                sell_cap = price * self.quantity
+
+                self.booked.append([buy_cap, sell_cap])
+                self.shares = []
+                if self.session is not None:
+                    self.session.percent_profit += (self.get_profit() / self.invested_amount) * 100
+
+                self.status = False
+                messagebox.showerror("Oversold", "You sold more quantity then you bought.")
+            else:
+
+                if quantity < 0:
+
+                    bquant = quantity
+                    net_price_sold = 0
+
+                    pops = []
+                    for i in range(len(self.shares)):
+
+                        res = self.shares[i][1] + quantity
+
+                        if res < 0:
+                            quantity = res
+                            net_price_sold += self.shares[i][0] * self.shares[i][1]
+                            pops.append(self.shares[i])
+
+                        elif res == 0:
+                            quantity = res
+                            pops.append(self.shares[i])
+                            net_price_sold += self.shares[i][0] * self.shares[i][1]
+                        else:
+                            self.shares[i][1] = res
+                            net_price_sold += self.shares[i][0] * abs(quantity)
+                            quantity = 0
+
+                    curr_value_sold = price * abs(bquant)
+
+                    self.booked.append([net_price_sold, curr_value_sold])
+                    for i in pops:
+                        self.shares.remove(i)
+
+                    self.quantity
+                    self.avg_price
+                    return
+                self.shares.append([price, quantity])
+                self.quantity
+                self.avg_price
+                buy_cap = self.avg_price * self.quantity
+                sell_cap = price * self.quantity
 
         except Exception as e:
             print("excp", e)
             print(traceback.format_exc())
-            pass
 
     def get_value(self):
         return abs(self.avg_price)
 
     def get_profit(self):
-        if self.is_short:
-            return -(self.profit)
-        else:
-            return self.profit
+        return -(self.profit) if self.is_short else self.profit
 
     def get_quantity(self):
         return abs(self.quantity)
 
     @property
     def quantity(self):
-        qnt = 0
-        for i in self.shares:
-            qnt += i[1]
-
-        return qnt
+        return sum(i[1] for i in self.shares)
 
     @property
     def profit(self):
@@ -384,35 +349,24 @@ class Position:
 
         bookedp = sell_price - buy_price
 
-        buy_price = 0
-        for i in self.shares:
-            buy_price += i[0] * abs(i[1])
-
+        buy_price = sum(i[0] * abs(i[1]) for i in self.shares)
         sell_price = abs(self.quantity) * self.ohlc["close"]
-        
+
         notbookedp = sell_price - buy_price
 
         return notbookedp+bookedp
 
     @property
     def invested_amount(self):
-        buy_price = 0
-        for i in self.booked:
-            buy_price += i[0]
-
-        buy_price1 = 0
-        for i in self.shares:
-            buy_price1 += i[0] * abs(i[1])
-
+        buy_price = sum(i[0] for i in self.booked)
+        buy_price1 = sum(i[0] * abs(i[1]) for i in self.shares)
         return buy_price + buy_price1
 
     @property
     def avg_price(self):
         avg = 0
-        total_price = 0
         total_quantity = self.quantity
-        for i in self.shares:
-            total_price += (i[0] * i[1])
+        total_price = sum((i[0] * i[1]) for i in self.shares)
         try:
             avg = total_price/total_quantity
         except ZeroDivisionError:
@@ -473,6 +427,4 @@ class Position:
         self.profit
 
 
-if __name__ == "__main__":
-    pass
 
