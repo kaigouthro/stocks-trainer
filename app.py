@@ -71,7 +71,7 @@ class App(tk.Frame):
         self.play_pause_label.set("▶")
         self.position_str = tk.StringVar()
         self.acc_val_lab = tk.StringVar()
-        self.acc_val_lab.set("Account Value: {} +0.0%".format(self.session.account_value))
+        self.acc_val_lab.set(f"Account Value: {self.session.account_value} +0.0%")
         
     def construct_widget(self):
         # Main GUI
@@ -436,7 +436,7 @@ class App(tk.Frame):
 
         if self.order_type == "market":
             print("in market")
-            
+
             if self.order_side == "buy":
                 trd = Trade()
             elif self.order_side == "sell":
@@ -446,27 +446,16 @@ class App(tk.Frame):
             try:
                 quantitiy = int(self.moquantity.get())
 
-                if self.motakep.get().strip():
-                    takep = int(self.motakep.get())
-                else:
-                    takep = None
-    
-                if self.mostopl.get().strip():
-                    stopl = int(self.mostopl.get())
-                else:
-                    stopl = None
+                takep = int(self.motakep.get()) if self.motakep.get().strip() else None
+                stopl = int(self.mostopl.get()) if self.mostopl.get().strip() else None
             except:
                 tk.messagebox.showerror("Value Error", "All the inputs must be Integers.")
                 return
 
             trd.market_order(quantitiy, takep, stopl)
-            if self.current_position is None:
-                self.current_position = Position(trd, self.session)
-            else:
-                self.current_position.add_trade(trd)
         else:
             print("inlimit")
-            
+
             if self.order_side == "buy":
                 trd = Trade()
             elif self.order_side == "sell":
@@ -476,26 +465,19 @@ class App(tk.Frame):
 
             try:
                 quantitiy = int(self.loquantity.get())
-    
-                if self.lotakep.get().strip():
-                    takep = int(self.lotakep.get())
-                else:
-                    takep = None
-                if self.lostopl.get().strip():
-                    stopl = int(self.lostopl.get())
-                else:
-                    stopl = None
 
+                takep = int(self.lotakep.get()) if self.lotakep.get().strip() else None
+                stopl = int(self.lostopl.get()) if self.lostopl.get().strip() else None
                 limit = int(self.loorderp.get())
             except:
                 tk.messagebox.showerror("Value Error", "All the inputs must be Integers.")
                 return
-            
+
             trd.limit_order(quantitiy, limit, takep, stopl)
-            if self.current_position is None:
-                self.current_position = Position(trd, self.session)
-            else:
-                self.current_position.add_trade(trd)
+        if self.current_position is None:
+            self.current_position = Position(trd, self.session)
+        else:
+            self.current_position.add_trade(trd)
 
     def fetch(self):
         name = self.session.get_name()
@@ -505,43 +487,44 @@ class App(tk.Frame):
 
     def routine_task(self):
         ohlc = self.session.get_ohlc()
-        
+
         if ohlc is not None:
 
-            self.open_label.set("Open\n{}".format(ohlc["open"]))
-            self.close_label.set("Close\n{}".format(ohlc["close"]))
-            self.high_label.set("High\n{}".format(ohlc["high"]))
-            self.low_label.set("Low\n{}".format(ohlc["low"]))
-            self.buy_label.set("Buy\n{}".format(ohlc["close"]))
-            self.sell_label.set("Sell\n{}".format(ohlc["close"]))
+            self.open_label.set(f'Open\n{ohlc["open"]}')
+            self.close_label.set(f'Close\n{ohlc["close"]}')
+            self.high_label.set(f'High\n{ohlc["high"]}')
+            self.low_label.set(f'Low\n{ohlc["low"]}')
+            self.buy_label.set(f'Buy\n{ohlc["close"]}')
+            self.sell_label.set(f'Sell\n{ohlc["close"]}')
 
             if self.current_position is not None:
                 self.update_trades()
                 self.current_position.update_ohlc(ohlc)
-                if self.current_position.is_short:
-                    typee = "Short"
-                else:
-                    typee = "Long"
+                typee = "Short" if self.current_position.is_short else "Long"
                 percent = round((self.current_position.get_profit() / self.current_position.invested_amount) * 100, 2)
-                self.position_str.set("{} {} @{} Q.{}\nInv.{} PnL.{} {}%".format(typee, self.session.get_name(), self.current_position.get_value(), self.current_position.get_quantity(), self.current_position.invested_amount , round(self.current_position.get_profit(), 2), percent))
-            
+                self.position_str.set(
+                    f"{typee} {self.session.get_name()} @{self.current_position.get_value()} Q.{self.current_position.get_quantity()}\nInv.{self.current_position.invested_amount} PnL.{round(self.current_position.get_profit(), 2)} {percent}%"
+                )
+
             try:
                 if self.session.percent_profit >= 0:
                     perc = round((self.session.percent_profit/100) * self.session.account_value, 3)
-                    self.acc_val_lab.set("Account value: {} +{}".format(self.session.account_value+perc, round(self.session.percent_profit, 3)))
+                    self.acc_val_lab.set(
+                        f"Account value: {self.session.account_value + perc} +{round(self.session.percent_profit, 3)}"
+                    )
                 else:
-                    self.acc_val_lab.set("Account value: {} -{}".format(self.session.account_value, perc))
+                    self.acc_val_lab.set(f"Account value: {self.session.account_value} -{perc}")
             except:
                 print(traceback.format_exc())
                 self.acc_val_lab.set("Error")
-        
+
         if self.session.pause_signal:
             self.playback_running = False
             self.session.pause_signal = False
-        
+
         if self.playback_running:
             self.after(200, self.routine_task)
-        
+
         if self.session.check_last_bar():
             self.session.click_pause_play()
             self.playback_running = False
@@ -567,11 +550,7 @@ class App(tk.Frame):
         self.session.click_replay()
 
     def play_pause(self):
-        if self.playback_running:
-            self.playback_running = False
-        else:
-            self.playback_running = True
-        
+        self.playback_running = not self.playback_running
         self.routine_task()
         self.session.click_pause_play()
 
